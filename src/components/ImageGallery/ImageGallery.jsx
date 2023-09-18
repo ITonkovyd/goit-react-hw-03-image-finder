@@ -7,81 +7,85 @@ import { Component } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { ImageGalleryStyle, Wrapper } from './ImageGallery.styled';
 
-
-
 export default class ImageGallery extends Component {
   state = {
     data: [],
     totalHits: null,
     error: null,
     status: 'idle',
+    isFirstRequest: true,
     page: 1,
     per_page: 12,
-  }; 
-
+  };
 
   componentDidUpdate(prevProps, prevState) {
     const prevReq = prevProps.search;
     const search = this.props.search;
 
     if (prevReq !== search) {
-      this.setState({data: [], page: 1, status: 'pending'});
-      
-      this.fetchImages()
-    } else if (prevState.page !== this.state.page) {
+      this.setState({
+        data: [],
+        isFirstRequest: true,
+        page: 1,
+        status: 'pending',
+      });
+
+      this.fetchImages(1);
+    } else if (
+      prevState.page !== this.state.page &&
+      !this.state.isFirstRequest
+    ) {
       this.setState({ status: 'pending' });
-      
-      this.fetchImages()
+
+      this.fetchImages(this.state.page);
     }
   }
 
-  fetchImages = () => {
-    const KEY = '29559865-360b254a5abc6663dbbd46c59'
+  fetchImages = page => {
+    const KEY = '29559865-360b254a5abc6663dbbd46c59';
     const search = this.props.search;
-    let { page, per_page } = this.state
-    
-      const URL = `https://pixabay.com/api/?q=${search}&page=${page}&key=${KEY}&image_type=photo&orientation=horizontal&per_page=${per_page}`;
-    
+    let { per_page } = this.state;
+
+    const URL = `https://pixabay.com/api/?q=${search}&page=${page}&key=${KEY}&image_type=photo&orientation=horizontal&per_page=${per_page}`;
+
     axios
       .get(URL)
-      .then((data) => {
+      .then(data => {
         if (data.data.totalHits === 0) {
           toast.error(`There is no images with "${search}" tags.`);
-          this.setState({status: 'idle'})
-          return data
+          this.setState({ status: 'idle' });
+          return data;
         } else {
-          this.setState((prevState) => ({
+          this.setState(prevState => ({
             data: prevState.data.concat(data.data.hits),
             totalHits: data.data.totalHits,
             status: 'resolved',
           }));
         }
       })
-      .catch((err) => {
+      .catch(err => {
         console.log(err);
         this.setState({ error: err.message, status: 'rejected' });
         toast.error(`${this.state.error}`);
-      })
-      
-      
-  }
-  
-  loadMore = () => {
-    this.setState((prevState) => ({
-      status: 'pending',
-      page: prevState.page + 1,
+      });
+  };
 
-    }))
-  }
+  loadMore = () => {
+    this.setState(prevState => ({
+      status: 'pending',
+      isFirstRequest: false,
+      page: prevState.page + 1,
+    }));
+  };
 
   isMorePages = () => {
-    const { totalHits, per_page, page } = this.state
-    return page*per_page < totalHits
-  }
+    const { totalHits, per_page, page } = this.state;
+    return page * per_page < totalHits;
+  };
 
   render() {
     const { data, status, error } = this.state;
-    const isMorePages = this.isMorePages()
+    const isMorePages = this.isMorePages();
 
     if (status === 'idle') {
       return (
@@ -96,37 +100,34 @@ export default class ImageGallery extends Component {
       return <ToastContainer autoClose={3000} />;
     }
 
-    if (data.length > 0) { 
+    if (data.length > 0) {
       return (
         <Wrapper>
           <ImageGalleryStyle>
-            {data.map((hit) => {
+            {data.map(hit => {
               return <ImageGalleryItem key={hit.id} data={hit} />;
             })}
           </ImageGalleryStyle>
 
-          {isMorePages && status !== 'pending' ?
-            (<Button onLoadMore={this.loadMore} />) 
-            : null
-          }
+          {isMorePages && status !== 'pending' ? (
+            <Button onLoadMore={this.loadMore} />
+          ) : null}
 
-          {!isMorePages ?
-            (<p>No more images with your tags :c</p>)
-          : (status === "pending" ? (<Loader/>) : null)
-          }
-
+          {!isMorePages ? (
+            <p>No more images with your tags :c</p>
+          ) : status === 'pending' ? (
+            <Loader />
+          ) : null}
         </Wrapper>
       );
     }
-    
+
     if (status === 'pending') {
       return <Loader />;
     }
   }
 }
 
-
-
 ImageGallery.propTypes = {
-  search: PropTypes.string.isRequired
-}
+  search: PropTypes.string.isRequired,
+};
